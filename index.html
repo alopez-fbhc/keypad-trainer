@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Alarm Keypad Trainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Overpass+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: keypad and its readout on the left; scenarios, coach and reference on the right, separated by plain rules. One column on phones. */
+:root{
+  --bg:#F2F3F4; --panel:#FFFFFF; --line:#D3D8DC; --ink:#1A1D21; --muted:#59626A;
+  --accent:#1B4DB1; --accent-ink:#FFFFFF; --ok:#1E6B45;
+  --dev:#FAFAF9; --dev-edge:#C9CED2; --dev-shadow:rgba(20,30,40,.30);
+  --key:#FFFFFF; --key-low:#D2D7DA; --engrave:#5A4A37;
+  --g2ink:#5F6A70; --ring-track:#D0D5D8; --ring-blue:#2FA3E3; --ring-red:#E5392B; --ring-yellow:#F2B01E;
+  --font-ui:'Atkinson Hyperlegible',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-label:'Atkinson Hyperlegible',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:'Overpass Mono',ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#13171A; --panel:#1B2024; --line:#2D3338; --ink:#E8EAED; --muted:#9AA3AB;
+    --accent:#7AA7FF; --accent-ink:#0B1B3A; --ok:#6FD3A0;
+    --dev:#E4E7E8; --dev-edge:#B5BBBE; --dev-shadow:rgba(0,0,0,.6);
+    --key:#F1F3F3; --key-low:#BFC5C8; --ring-track:#B9C0C3;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#13171A; --panel:#1B2024; --line:#2D3338; --ink:#E8EAED; --muted:#9AA3AB;
+  --accent:#7AA7FF; --accent-ink:#0B1B3A; --ok:#6FD3A0;
+  --dev:#E4E7E8; --dev-edge:#B5BBBE; --dev-shadow:rgba(0,0,0,.6);
+  --key:#F1F3F3; --key-low:#BFC5C8; --ring-track:#B9C0C3;
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:var(--font-ui); font-size:17px; line-height:1.5;
+  padding-block:28px 44px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+.wrap{max-width:1080px;margin-inline:auto}
+h1{font-weight:700;font-size:clamp(1.6rem,4vw,2rem);line-height:1.15;margin:0;text-wrap:balance}
+h2{font-weight:700;font-size:1.15rem;margin:0 0 10px;color:var(--ink)}
+.sub{margin:8px 0 0;max-width:64ch;color:var(--muted)}
+.layout{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:36px;margin-top:26px;align-items:start}
+@media (max-width:860px){.layout{grid-template-columns:minmax(0,1fr)}}
+.stage,.side{min-width:0;display:flex;flex-direction:column;gap:18px}
+
+/* Device */
+.devicewrap{container-type:inline-size;width:100%;max-width:580px}
+.device{
+  position:relative; aspect-ratio:1.5/1; width:100%;
+  background:var(--dev);
+  border-radius:5cqw;
+  box-shadow:0 0 0 .3cqw var(--dev-edge), 0 1.6cqw 3cqw -1.6cqw var(--dev-shadow);
+  padding:5cqw 5cqw 5cqw 4.5cqw;
+  display:grid; grid-template-columns:1.05fr 1fr; gap:3.5cqw;
+}
+.keys{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(4,1fr);gap:1.1cqw;min-height:0}
+.key{
+  position:relative;display:flex;align-items:center;justify-content:space-between;
+  padding:0 7%;cursor:pointer;
+  background:var(--key);
+  border:.25cqw solid var(--key-low);border-bottom-width:.7cqw;border-radius:1cqw;
+  font:italic 700 5.2cqw/1 var(--font-ui);color:var(--engrave);
+  transition:transform .08s,border-bottom-width .08s;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none;
+}
+.key:active{transform:translateY(.3cqw);border-bottom-width:.4cqw}
+.key .dimple{position:relative;width:6.2cqw;aspect-ratio:1;border-radius:50%;background:var(--dev);box-shadow:inset 0 0 0 .25cqw var(--key-low)}
+.key.dot .dimple::after{content:"";position:absolute;inset:0;margin:auto;width:1.9cqw;height:1.9cqw;border-radius:50%;background:var(--ring-red)}
+.key svg{width:5.8cqw;height:5.8cqw;stroke:var(--engrave);fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.key:focus-visible,.pad:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel-right{position:relative;display:flex;align-items:center;min-height:0}
+.sensors{position:absolute;top:-1.6cqw;right:1cqw;display:flex;align-items:center;gap:1.6cqw}
+.sensors i{display:block;border-radius:50%}
+.sensors .eye{width:1.1cqw;height:1.1cqw;background:#2A2F31}
+.sensors .lens{width:5.2cqw;height:3.4cqw;border-radius:2cqw;background:var(--key-low)}
+.dial{display:block;width:100%;height:auto;overflow:visible}
+.pad{fill:var(--key);stroke:var(--key-low);stroke-width:1.4;cursor:pointer;outline:none}
+.pad:hover{fill:var(--dev)}
+.pad:active{transform:translateY(1px)}
+.engrave{stroke:var(--key);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+.engrave.solid{fill:var(--key);stroke:none}
+.disc{fill:var(--engrave);pointer-events:none}
+.seg{fill:none;stroke:var(--ring-track);stroke-width:6}
+.seg.on-blue{stroke:var(--ring-blue)}
+.seg.on-red{stroke:var(--ring-red)}
+.corner{fill:none;stroke:transparent;stroke-width:9;stroke-linecap:round}
+.corners.c-red{--cc:var(--ring-red)}
+.corners.c-yellow{--cc:var(--ring-yellow)}
+.corners.show .corner{animation:cornerblink .5s steps(1,end) var(--n,3)}
+.ring.flash .seg.on-red{animation:flash .6s steps(1,end) infinite}
+@keyframes cornerblink{0%{stroke:var(--cc)}50%{stroke:transparent}}
+@keyframes flash{50%{stroke:transparent}}
+@keyframes pulse{50%{opacity:.55}}
+.key.hint{box-shadow:0 0 0 .8cqw var(--accent);animation:pulse 1.1s ease-in-out infinite}
+.pad.hint{stroke:var(--accent);stroke-width:3.2;animation:pulse 1.1s ease-in-out infinite}
+.key.blinking{animation:pulse .6s ease-in-out infinite;box-shadow:0 0 0 .8cqw var(--ring-yellow)}
+@media (prefers-reduced-motion:reduce){
+  .corners.show .corner{animation:none;stroke:var(--cc)}
+  .ring.flash .seg.on-red{animation:none}
+  .key.hint,.pad.hint,.key.blinking,.rbtn.hint,.rbtn.blinking{animation:none}
+  .key,.rbtn{transition:none}
+}
+
+
+/* Second keypad: square body, round buttons, emergency strip on the left */
+.devicewrap.g2{max-width:460px}
+.device2{
+  position:relative;aspect-ratio:1/1.04;width:100%;background:var(--dev);border-radius:9cqw;
+  box-shadow:0 0 0 .3cqw var(--dev-edge),0 1.6cqw 3cqw -1.6cqw var(--dev-shadow);
+  padding:8cqw 5cqw 5cqw 5cqw;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(5,1fr);
+}
+.device2 .sep{grid-column:1;grid-row:1 / 6;border-right:.3cqw solid var(--key-low);margin:-2cqw 0 0}
+.device2 .lbar{position:absolute;top:3.2cqw;left:50%;width:34cqw;height:1.2cqw;margin-left:-17cqw;border-radius:1cqw;background:var(--key-low);overflow:hidden}
+.device2 .lbar i{display:block;height:100%;width:0;background:var(--ring-red)}
+.rbtn{
+  position:relative;width:14.5cqw;height:14.5cqw;justify-self:center;align-self:center;padding:0;border-radius:50%;
+  border:.3cqw solid var(--key-low);background:var(--key);color:var(--g2ink);cursor:pointer;
+  display:grid;place-items:center;font:400 5.8cqw/1 var(--font-ui);box-shadow:inset 0 -.5cqw 0 var(--key-low);
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none;-webkit-touch-callout:none;
+  transition:transform .08s;
+}
+.rbtn:active{transform:translateY(.3cqw)}
+.rbtn svg{width:7.4cqw;height:7.4cqw;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.rbtn.blank{cursor:default;box-shadow:none;pointer-events:none}
+.rbtn.emg{border:.6cqw solid var(--ring-red)}
+.rbtn.mbtn[data-t="disarm"]{color:var(--ring-blue)}
+.rbtn .prog{position:absolute;inset:-1cqw;width:calc(100% + 2cqw);height:calc(100% + 2cqw);transform:rotate(-90deg);pointer-events:none;overflow:visible}
+.rbtn .prog circle{fill:none;stroke:#2A2F31;stroke-width:2.4;stroke-dasharray:119.4;stroke-dashoffset:119.4}
+.rbtn.holding .prog circle{stroke-dashoffset:0;transition:stroke-dashoffset 3s linear}
+.rbtn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.rbtn.hint{box-shadow:0 0 0 .9cqw var(--accent);animation:pulse 1.1s ease-in-out infinite}
+.rbtn.blinking{box-shadow:0 0 0 .9cqw var(--ring-yellow);animation:pulse .6s ease-in-out infinite}
+.models{display:flex;flex-wrap:wrap;gap:10px;align-items:center;max-width:580px}
+.models .lbl{font-weight:700}
+button.btn[aria-pressed="true"],button.btn[aria-pressed="true"]:hover:not(:disabled){background:var(--ink);border-color:var(--ink);color:var(--bg)}
+
+/* Readout below the device */
+.status{display:grid;gap:10px;max-width:580px}
+.pill{display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid var(--line);border-radius:3px;background:var(--panel);font-family:var(--font-mono);font-weight:600;font-size:1rem;font-variant-numeric:tabular-nums}
+.pill .led{flex:none;width:11px;height:11px;border-radius:50%;background:var(--ring-blue)}
+.pill[data-tone="red"] .led{background:var(--ring-red)}
+.pill[data-tone="amber"] .led{background:var(--ring-yellow)}
+.last{margin:0;min-height:3em}
+.voice{margin:0;font-family:var(--font-mono);font-size:.92rem;color:var(--ink);background:var(--panel);border:1px dashed var(--muted);border-radius:3px;padding:7px 10px}
+.entry{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:.95rem}
+.entry .dots{font-family:var(--font-mono);font-size:1.15rem;letter-spacing:.35em;color:var(--ink)}
+.sim{display:flex;flex-wrap:wrap;gap:10px;align-items:center;max-width:580px}
+.sim .lbl{font-weight:700;color:var(--ink)}
+button.btn{font:700 .95rem var(--font-ui);padding:8px 14px;border-radius:3px;border:1.5px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer}
+button.btn:hover:not(:disabled){background:var(--panel)}
+button.btn:disabled{opacity:.45;cursor:not-allowed;border-color:var(--muted)}
+button.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button.btn.hint{outline:3px solid var(--accent);outline-offset:2px}
+button.btn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* Side column: plain sections divided by rules */
+.card{border-top:1px solid var(--line);padding-top:18px}
+.side>.card:first-child{border-top:0;padding-top:0}
+.scn{display:grid}
+.scn button{position:relative;display:grid;gap:1px;text-align:left;font:inherit;color:inherit;background:transparent;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:10px 6px 10px 28px;cursor:pointer}
+.scn button:first-child{border-top:1px solid var(--line)}
+.scn button::before{content:"";position:absolute;left:6px;top:1.05rem;width:11px;height:11px;border:2px solid var(--muted);border-radius:50%}
+.scn button b{font-weight:700;font-size:1.02rem}
+.scn button span{color:var(--muted);font-size:.93rem}
+.scn button:hover{background:var(--panel)}
+.scn button[aria-current="true"]::before{border-color:var(--accent);background:radial-gradient(circle,var(--accent) 0 38%,transparent 42%)}
+.scn button[aria-current="true"] b{color:var(--accent)}
+.scn button:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
+.coach h3{font-weight:700;font-size:1.35rem;line-height:1.2;margin:0}
+.coach .blurb{margin:4px 0 14px;color:var(--muted)}
+.steps{list-style:none;margin:0;padding:0;display:grid;gap:10px;counter-reset:s}
+.steps li{display:grid;grid-template-columns:1.7em minmax(0,1fr);align-items:baseline;counter-increment:s;color:var(--muted)}
+.steps li::before{content:counter(s) ".";font-family:var(--font-mono);font-weight:600}
+.steps li.current{color:var(--ink);font-weight:700}
+.steps li.current::before{color:var(--accent)}
+.steps li.done{color:var(--muted)}
+.steps li.done::before{content:"\2713";color:var(--ok)}
+.note{margin:14px 0 0;font-weight:700}
+.finish{margin-top:14px;padding-top:12px;border-top:2px solid var(--ok)}
+.finish p{margin:0 0 10px;font-weight:700}
+.finish .row{display:flex;flex-wrap:wrap;gap:8px}
+.free p{margin:0 0 10px}
+.codeline{margin:16px 0 0;color:var(--muted);font-size:.95rem}
+.mono{font-family:var(--font-mono);font-weight:600;color:var(--ink)}
+.ref{margin:0;padding:0;list-style:none;display:grid;gap:8px;font-size:1rem}
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:6px 14px;margin:14px 0 0;padding:12px 0 0;border-top:1px solid var(--line);font-size:.95rem}
+.legend div{display:flex;align-items:center;gap:8px}
+.sw{flex:none;width:14px;height:14px;border-radius:50%}
+.sw.blue{background:var(--ring-blue)}.sw.red{background:var(--ring-red)}.sw.yellow{background:var(--ring-yellow)}
+.sw.fill{background:conic-gradient(var(--ring-red) 0 60%,var(--ring-track) 0)}
+.settings summary{cursor:pointer;font-weight:700;font-size:1.15rem}
+.settings summary:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.settings .grid{display:grid;gap:10px;margin-top:12px}
+.settings label{display:flex;align-items:center;gap:10px}
+.settings input[type="text"]{width:6ch;font:600 1.05rem var(--font-mono);padding:5px 8px;border:1.5px solid var(--ink);border-radius:3px;background:var(--panel);color:var(--ink);letter-spacing:.2em;text-align:center}
+.settings input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.settings .help{margin:0;color:var(--muted);font-size:.93rem}
+.foot{margin-top:30px;color:var(--muted);font-size:.93rem;max-width:80ch}
+body{margin:0}
+</style>
+</head>
+<body>
+
+<header class="wrap">
+  <h1>Alarm Keypad Trainer</h1>
+  <p class="sub">Practice arming and disarming a keypad modeled on the Ring Alarm Keypad (1st and 2nd Gen). Pick a scenario, or switch to free practice and press anything you like.</p>
+</header>
+
+<main class="wrap layout">
+  <section class="stage" aria-label="Keypad simulator">
+    <div class="models" role="group" aria-label="Keypad model">
+      <span class="lbl">Keypad</span>
+      <button class="btn" id="m1" type="button" aria-pressed="true">1st Gen, round dial</button>
+      <button class="btn" id="m2" type="button" aria-pressed="false">2nd Gen, emergency buttons</button>
+    </div>
+
+    <div class="devicewrap" id="wrap1">
+      <div class="device" id="device">
+        <div class="keys" id="keys"></div>
+        <div class="panel-right">
+          <div class="sensors" aria-hidden="true"><i class="eye"></i><i class="lens"></i></div>
+          <svg class="dial" id="dial" viewBox="0 0 200 200" role="group" aria-label="Mode buttons and status ring"></svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="devicewrap g2" id="wrap2" hidden>
+      <div class="device2" id="device2">
+        <div class="sep" aria-hidden="true"></div>
+        <div class="lbar" aria-label="Light bar" role="img"><i id="lbarFill"></i></div>
+      </div>
+    </div>
+
+    <div class="status">
+      <div class="pill" id="pill" data-tone="blue"><span class="led"></span><span id="pillText">Disarmed</span></div>
+      <p class="last" id="last" aria-live="polite"></p>
+      <p class="voice" id="voice" hidden>Keypad says: &ldquo;Sensors require bypass&rdquo;</p>
+      <div class="entry" id="entryRow"><span>Code entered</span><span class="dots" id="dots" aria-hidden="true">○○○○</span></div>
+    </div>
+
+    <div class="sim">
+      <span class="lbl">Simulate</span>
+      <button class="btn" id="doorBtn" data-t="door" type="button">Open front door</button>
+      <button class="btn" id="winBtn" type="button" aria-pressed="false">Window: closed</button>
+    </div>
+  </section>
+
+  <aside class="side">
+    <div class="card coach" id="coach" aria-live="polite"></div>
+
+    <div class="card">
+      <h2>Other scenarios</h2>
+      <div class="scn" id="scn"></div>
+    </div>
+
+    <div class="card">
+      <h2>Keypad basics</h2>
+      <ul class="ref">
+        <li><b>Arm:</b> enter your code, then press Away or Home.</li>
+        <li><b>Disarm:</b> enter your code, then press Disarm.</li>
+        <li><b>X</b> cancels a code you have started typing.</li>
+        <li data-m="1"><b>&#10003;</b> bypasses open sensors when the keypad says &ldquo;Sensors require bypass.&rdquo;</li>
+        <li data-m="1"><b>Panic:</b> hold X and &#10003; together for 3 seconds. On a phone use two fingers. On a computer hold Esc and Enter.</li>
+        <li data-m="2"><b>Police and Fire:</b> hold the button for 3 seconds. The siren sounds and your emergency contacts are notified.</li>
+        <li data-m="2"><b>Medical:</b> hold the button for 3 seconds. An alert is sent and the siren stays quiet.</li>
+        <li data-m="2"><b>Light bar:</b> shows how much time is left during the exit and entry delays.</li>
+      </ul>
+      <div class="legend" data-m="1" aria-label="Ring light colors">
+        <div><span class="sw blue"></span>Blue: disarmed</div>
+        <div><span class="sw red"></span>Red: armed</div>
+        <div><span class="sw fill"></span>Filling: exit delay</div>
+        <div><span class="sw red"></span>Emptying: entry delay</div>
+        <div><span class="sw red"></span>Flashing red: alarm</div>
+        <div><span class="sw yellow"></span>Yellow corners: bypass or X</div>
+      </div>
+    </div>
+
+    <details class="card settings">
+      <summary>Practice settings</summary>
+      <div class="grid">
+        <label for="codeInput"><span>Practice code</span><input id="codeInput" type="text" inputmode="numeric" maxlength="4" value="1234" autocomplete="off"></label>
+        <p class="help" id="codeHelp">Any 4 digits. Everyone you share this with can set their own.</p>
+        <label for="hintsOn"><input id="hintsOn" type="checkbox" checked>Highlight the next button</label>
+        <label for="dotsOn"><input id="dotsOn" type="checkbox" checked>Show how many digits are entered</label>
+        <label for="soundOn"><input id="soundOn" type="checkbox" checked>Play keypad sounds</label>
+        <p class="help">Keyboard: 0&ndash;9, Esc or Backspace for X, Enter for &#10003;, A for Away, H for Home, D for Disarm. Emergency buttons: hold with a mouse or finger, or hold Space or Enter while one is focused.</p>
+      </div>
+    </details>
+  </aside>
+</main>
+
+<p class="wrap foot">Unofficial practice tool, not made by or connected to Ring. Delays here are short so practice moves quickly (8 seconds to exit, 15 to enter). A real system lets you set both from 0 to 180 seconds, and your setup may differ from this one.</p>
+
+<script>
+(function(){
+  var $=function(s){return document.querySelector(s)};
+  var $$=function(s){return Array.prototype.slice.call(document.querySelectorAll(s))};
+  var EXIT_S=8, ENTRY_S=15;
+  var code='1234';
+  var hintsOn=true, dotsOn=true, soundOn=true, model=1;
+  var S={mode:'disarmed',target:null,buf:'',deadline:0,total:0,window:false,bypassFor:null,last:'',lastSec:-1};
+
+  /* ---------- sound ---------- */
+  var ac=null, sirenTimer=null;
+  function audio(){
+    if(!soundOn) return null;
+    try{
+      if(!ac){ac=new (window.AudioContext||window.webkitAudioContext)();}
+      if(ac.state==='suspended') ac.resume();
+      return ac;
+    }catch(e){return null;}
+  }
+  function tone(freq,dur,vol,type,delay){
+    var a=audio(); if(!a) return;
+    try{
+      var o=a.createOscillator(), g=a.createGain(), t=a.currentTime+(delay||0);
+      o.type=type||'sine'; o.frequency.value=freq;
+      g.gain.setValueAtTime(0.0001,t);
+      g.gain.exponentialRampToValueAtTime(vol||0.04,t+0.005);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+      o.connect(g); g.connect(a.destination);
+      o.start(t); o.stop(t+dur+0.02);
+    }catch(e){}
+  }
+  var beep={
+    key:function(){tone(1000,.05,.04);},
+    tick:function(){tone(700,.05,.03);},
+    bad:function(){tone(220,.14,.05,'square');tone(180,.18,.05,'square',.16);},
+    ok:function(){tone(784,.08,.05);tone(1046,.12,.05,'sine',.1);}
+  };
+  function stopSiren(){ if(sirenTimer){clearInterval(sirenTimer);sirenTimer=null;} }
+  function startSiren(){
+    stopSiren(); if(!soundOn) return;
+    var n=0;
+    sirenTimer=setInterval(function(){ tone(n%2?900:650,.3,.04,'sawtooth'); n++; if(n>40) stopSiren(); },350);
+  }
+
+  /* ---------- build the keypad ---------- */
+  var keysEl=$('#keys');
+  var layout=['1','2','3','4','5','6','7','8','9','x','0','ok'];
+  layout.forEach(function(k){
+    var b=document.createElement('button');
+    b.type='button'; b.className='key'+((k==='x'||k==='ok')?' dot':''); b.dataset.t=(k==='x'||k==='ok')?k:'k'+k;
+    var label;
+    if(k==='ok'){ label='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13l5 5L20 6"/></svg>'; b.setAttribute('aria-label','Check mark, enter'); }
+    else if(k==='x'){ label='X'; b.setAttribute('aria-label','X, cancel code entry'); }
+    else { label=k; b.setAttribute('aria-label','Digit '+k); }
+    b.innerHTML='<span>'+label+'</span><span class="dimple"></span>';
+    keysEl.appendChild(b);
+  });
+
+  /* ---------- build the dial ---------- */
+  var NS='http://www.w3.org/2000/svg';
+  function pt(r,deg){var a=deg*Math.PI/180;return [100+r*Math.sin(a),100-r*Math.cos(a)];}
+  function f(n){return n.toFixed(2);}
+  function arc(r,a0,a1){var p0=pt(r,a0),p1=pt(r,a1);return 'M'+f(p0[0])+' '+f(p0[1])+'A'+r+' '+r+' 0 0 1 '+f(p1[0])+' '+f(p1[1]);}
+  function sector(r0,r1,a0,a1){
+    var o0=pt(r1,a0),o1=pt(r1,a1),i1=pt(r0,a1),i0=pt(r0,a0);
+    return 'M'+f(o0[0])+' '+f(o0[1])+'A'+r1+' '+r1+' 0 0 1 '+f(o1[0])+' '+f(o1[1])+'L'+f(i1[0])+' '+f(i1[1])+'A'+r0+' '+r0+' 0 0 0 '+f(i0[0])+' '+f(i0[1])+'Z';
+  }
+  var dial=$('#dial');
+  var svg='<defs><linearGradient id="padGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--key)"/><stop offset="1" style="stop-color:var(--key-low)"/></linearGradient></defs>';
+  var pads=[
+    {t:'home',a0:7,a1:123,ia:65,name:'Home'},
+    {t:'disarm',a0:127,a1:233,ia:180,name:'Disarm'},
+    {t:'away',a0:237,a1:363,ia:300,name:'Away'}
+  ];
+  var shield='M0 -9L8 -6V1C8 6 4.5 9.5 0 11C-4.5 9.5 -8 6 -8 1V-6Z';
+  var icons={
+    disarm:'<path class="engrave" d="'+shield+'"/><path class="engrave" d="M-3 -2L3 4M3 -2L-3 4"/>',
+    home:'<path class="engrave" d="'+shield+'"/><circle class="engrave solid" cx="0" cy="-3.4" r="1.7"/><path class="engrave" d="M-3 5V2.2C-3 0.4 -1.5 -0.6 0 -0.6C1.5 -0.6 3 0.4 3 2.2V5"/>',
+    away:'<path class="engrave" d="'+shield+'"/><circle class="engrave solid" cx="1.2" cy="-4.4" r="1.6"/><path class="engrave" d="M1 -2.4L-0.8 1.8L-3.6 3.8M-0.8 1.8L1.8 4.6M1 -1.2L3.8 0M1 -1.2L-2 -0.6"/>'
+  };
+  pads.forEach(function(p){
+    svg+='<path class="pad" role="button" tabindex="0" aria-label="'+p.name+'" data-t="'+p.t+'" d="'+sector(58,94,p.a0,p.a1)+'"/>';
+  });
+  pads.forEach(function(p){
+    var c=pt(76,p.ia);
+    svg+='<g transform="translate('+f(c[0])+' '+f(c[1])+') scale(.95)" pointer-events="none"><circle class="disc" r="13"/>'+icons[p.t]+'</g>';
+  });
+  svg+='<g class="ring" id="ring"><circle cx="100" cy="100" r="37" style="fill:var(--key)"/>';
+  for(var i=0;i<12;i++){ svg+='<path class="seg" d="'+arc(44,i*30+3,i*30+27)+'"/>'; }
+  svg+='<g class="corners" id="corners">';
+  [45,135,225,315].forEach(function(a){ svg+='<path class="corner" d="'+arc(44,a-11,a+11)+'"/>'; });
+  svg+='</g></g>';
+  dial.innerHTML=svg;
+  var segs=$$('#ring .seg');
+  var ringEl=$('#ring'), cornersEl=$('#corners');
+  var cornerTimer=null;
+  function blink(color,times){
+    clearTimeout(cornerTimer);
+    cornersEl.setAttribute('class','corners');
+    void cornersEl.getBoundingClientRect();
+    cornersEl.style.setProperty('--n',times);
+    cornersEl.setAttribute('class','corners show c-'+color);
+    cornerTimer=setTimeout(function(){cornersEl.setAttribute('class','corners');},times*500+80);
+  }
+
+  /* ---------- build the 2nd-gen keypad ---------- */
+  var dev2=$('#device2');
+  var SH='M12 3L19 6V12C19 16.5 16 19.5 12 21C8 19.5 5 16.5 5 12V6Z';
+  function ico(inner){return '<svg viewBox="0 0 24 24" aria-hidden="true">'+inner+'</svg>';}
+  var PROG='<svg class="prog" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="19"/></svg>';
+  var g2i={
+    disarm:ico('<path d="'+SH+'"/><path d="M9.6 9.6L14.4 14.4M14.4 9.6L9.6 14.4"/>'),
+    home:ico('<path d="'+SH+'"/><circle cx="12" cy="9.8" r="1.5"/><path d="M9.6 16V14.2C9.6 13 10.6 12.3 12 12.3C13.4 12.3 14.4 13 14.4 14.2V16"/>'),
+    away:ico('<path d="'+SH+'"/><circle cx="13" cy="9" r="1.3"/><path d="M12.8 10.8L11.4 14L9.4 15.5M11.4 14L13.4 16.2M12.8 11.8L15 12.8M12.8 11.8L10.4 12.4"/>'),
+    police:ico('<path d="'+SH+'"/><path d="M12 8.4L12.9 10.4L15 10.6L13.4 12L13.9 14.1L12 13L10.1 14.1L10.6 12L9 10.6L11.1 10.4Z"/>'),
+    fire:ico('<path d="M12 4C12.2 7 15.6 8.4 15.6 12.6C15.6 15.1 14 17 12 17C10 17 8.4 15.1 8.4 12.6C8.4 11 9.2 10 10 9.2C10.3 10.2 11 10.6 11.5 10.5C11.2 8.5 11.5 6 12 4Z"/>'),
+    medical:ico('<circle cx="12" cy="12" r="7"/><path d="M12 8.8V15.2M8.8 12H15.2"/>'),
+    x:ico('<path d="M7 7L17 17M17 7L7 17"/>'),
+    ok:ico('<path d="M5 12.5L10 17.5L19 7"/>')
+  };
+  function rb(o){
+    var b=document.createElement(o.blank?'div':'button');
+    if(!o.blank){ b.type='button'; b.setAttribute('aria-label',o.label); } else { b.setAttribute('aria-hidden','true'); }
+    b.className='rbtn '+(o.cls||'');
+    b.style.gridArea=o.row+' / '+o.col;
+    if(o.t) b.dataset.t=o.t;
+    if(o.e) b.dataset.e=o.e;
+    b.innerHTML=o.html||'';
+    dev2.appendChild(b);
+  }
+  rb({cls:'mbtn',t:'disarm',row:1,col:2,label:'Disarm',html:g2i.disarm});
+  rb({cls:'mbtn',t:'home',row:1,col:3,label:'Home',html:g2i.home});
+  rb({cls:'mbtn',t:'away',row:1,col:4,label:'Away',html:g2i.away});
+  rb({cls:'emg',e:'police',row:2,col:1,label:'Police emergency, hold for 3 seconds',html:g2i.police+PROG});
+  rb({cls:'emg',e:'fire',row:3,col:1,label:'Fire emergency, hold for 3 seconds',html:g2i.fire+PROG});
+  rb({cls:'emg',e:'medical',row:4,col:1,label:'Medical emergency, hold for 3 seconds',html:g2i.medical+PROG});
+  rb({blank:true,row:5,col:1});
+  for(var n=0;n<9;n++){ rb({cls:'kk',t:'k'+(n+1),row:2+Math.floor(n/3),col:2+(n%3),label:'Digit '+(n+1),html:String(n+1)}); }
+  rb({cls:'kk',t:'x',row:5,col:2,label:'X, cancel code entry',html:g2i.x});
+  rb({cls:'kk',t:'k0',row:5,col:3,label:'Digit 0',html:'0'});
+  rb({cls:'kk',t:'ok',row:5,col:4,label:'Check mark, enter',html:g2i.ok});
+
+  /* ---------- scenarios ---------- */
+  var cur=0, sc={i:0,done:false,note:''};
+  function codeHint(){ return (code.indexOf(S.buf)===0 && S.buf.length<4)?('k'+code.charAt(S.buf.length)):'x'; }
+  function code4(ev){return ev.type==='digit' && ev.len===4;}
+  function modeOk(m){return function(ev){return ev.type==='mode' && ev.mode===m && ev.ok;};}
+  function armed(m){return function(ev){return ev.type==='armed' && ev.mode===m;};}
+  var SC=[
+    {id:'away',title:'Arm Away',blurb:'You are heading out and want the whole system on.',
+     setup:function(){reset({});S.last='The system is disarmed. Enter your code to start.';},
+     steps:[
+       {t:'Enter your 4-digit code.',code:true,test:code4,hint:codeHint},
+       {t:'Press Away, the shield with the running figure.',test:modeOk('away'),hint:function(){return 'away';}},
+       {t:function(){return model===1?'Watch the ring fill with red. When it is full, the system is armed.':'Watch the light bar count down. When it finishes, the system is armed.';},test:armed('away')}],
+     done:'Armed in Away mode. In real life you would already be out the door before the exit delay ends.'},
+    {id:'disarm',title:'Disarm when you arrive',blurb:'You walk in and the entry delay starts. Beat the countdown.',
+     setup:function(){reset({mode:'away'});S.last='The system is armed in Away mode. You just got home.';},
+     steps:[
+       {t:'Tap Open front door to start the entry delay.',test:function(ev){return ev.type==='door';},hint:function(){return 'door';}},
+       {t:function(){return model===1?'Enter your 4-digit code before the ring empties.':'Enter your 4-digit code before the light bar runs out.';},code:true,test:code4,hint:codeHint},
+       {t:'Press Disarm, the shield with the X.',test:modeOk('disarm'),hint:function(){return 'disarm';}}],
+     on:function(ev){ if(ev.type==='alarm'){ sc.i=1; sc.note='Time ran out and the alarm sounded. Enter your code and press Disarm to silence it.'; return true; } return false; },
+     done:'Disarmed. Enter your code as soon as you step inside, because the entry delay is short.'},
+    {id:'typo',title:'Fix a typo',blurb:'Start a code, make a mistake, and clear it with X.',
+     setup:function(){reset({});S.last='The system is disarmed. Enter your code to start.';},
+     steps:[
+       {t:'Press the first two digits of your code only.',test:function(ev){return ev.type==='digit' && ev.len===2;},hint:function(){return S.buf.length<2?codeHint():null;}},
+       {t:'Pretend that was wrong. Press X to cancel the entry.',test:function(ev){return ev.type==='clear';},hint:function(){return 'x';}},
+       {t:'Enter all four digits.',code:true,test:code4,hint:codeHint},
+       {t:'Press Away.',test:modeOk('away'),hint:function(){return 'away';}}],
+     done:'Code cleared and entered again. X is the quick way to start over without waiting.'},
+    {id:'free',title:'Free practice',blurb:'No steps. Press anything, open the door, or open the window.',
+     setup:function(){reset({});S.last='The system is disarmed. Try anything.';},steps:null}
+  ];
+
+  function reset(o){
+    stopSiren();
+    S.mode=o.mode||'disarmed'; S.target=null; S.buf=''; S.bypassFor=null; S.window=!!o.window; S.deadline=0; S.total=0; S.lastSec=-1;
+    cornersEl.setAttribute('class','corners');
+  }
+  function selectScenario(i){
+    cur=i; sc={i:0,done:false,note:''};
+    SC[i].setup(); renderScenarios(); renderCoach(); render();
+  }
+  function emit(ev){
+    var def=SC[cur];
+    if(def.steps && !sc.done){
+      if(def.on && def.on(ev)){ /* handled */ }
+      else if(ev.type==='fail'){
+        var ci=-1; def.steps.forEach(function(s,k){ if(s.code) ci=k; });
+        if(ci>=0 && sc.i<=ci+1){ sc.i=ci; sc.note='That did not work. Start again from the code step.'; }
+      } else if(def.steps[sc.i] && def.steps[sc.i].test(ev)){
+        sc.i++; sc.note='';
+        if(sc.i>=def.steps.length) sc.done=true;
+      }
+    }
+    renderCoach();
+  }
+
+  /* ---------- keypad actions ---------- */
+  function fail(msg){
+    S.buf=''; S.last=msg; blink('red',3); beep.bad(); emit({type:'fail'}); render();
+  }
+  function pressDigit(d){
+    if(S.buf.length>=4){ beep.bad(); S.last='A code has 4 digits. Press a mode button, or X to start over.'; render(); return; }
+    S.buf+=d; beep.key(); emit({type:'digit',len:S.buf.length}); render();
+  }
+  function pressX(){
+    beep.key();
+    if(S.bypassFor){
+      S.bypassFor=null; S.last='Arming canceled. The system is still disarmed.'; blink('yellow',1); emit({type:'cancel'});
+    } else if(S.buf){
+      S.buf=''; S.last='Code entry canceled.'+(model===1?' The ring corners blink yellow once.':''); blink('yellow',1); emit({type:'clear'});
+    } else {
+      S.last='X cancels a code entry. There is nothing to cancel right now.';
+    }
+    render();
+  }
+  function pressOk(){
+    beep.key();
+    if(S.bypassFor){
+      var t=S.bypassFor; S.bypassFor=null;
+      emit({type:'bypass'}); startExit(t);
+      S.last='Open sensors bypassed. The exit delay started.';
+    } else {
+      S.last='The check mark only bypasses open sensors when the keypad asks. Enter your code and press a mode button instead.';
+    }
+    render();
+  }
+  function startExit(m){
+    S.mode='exit'; S.target=m; S.total=EXIT_S*1000; S.deadline=Date.now()+S.total; S.lastSec=-1;
+    S.last='Exit delay started for '+(m==='away'?'Away':'Home')+'.'+(model===1?' The ring fills with red, clockwise.':' The light bar counts down.');
+  }
+  function pressMode(m){
+    beep.key();
+    if(S.buf.length<4){
+      fail(S.buf.length?'That code is too short. Enter all 4 digits, then press a mode button.':'Enter your 4-digit code first, then press a mode button.'); return;
+    }
+    if(S.buf!==code){ fail('That code does not match.'+(model===1?' The ring corners blink red.':'')+' Enter it again.'); return; }
+    S.buf='';
+    if(m==='disarm'){
+      var was=S.mode;
+      stopSiren(); S.mode='disarmed'; S.bypassFor=null; S.deadline=0; S.lastSec=-1; cornersEl.setAttribute('class','corners');
+      S.last=(was==='disarmed')?'Already disarmed.':(was==='alarm'?'Alarm silenced and system disarmed.':'Disarmed.')+(model===1?' The ring is solid blue.':'');
+      if(was!=='disarmed') beep.ok();
+      emit({type:'mode',mode:m,ok:true}); emit({type:'disarmed'});
+      render(); return;
+    }
+    emit({type:'mode',mode:m,ok:true});
+    if(S.mode==='alarm'){ S.last='The alarm is sounding. Enter your code and press Disarm first.'; render(); return; }
+    if(S.mode==='entry'){ S.last='The entry delay is running. Enter your code and press Disarm.'; render(); return; }
+    if(S.mode===m){ S.last='Already armed in '+(m==='away'?'Away':'Home')+' mode.'; render(); return; }
+    if(S.window){
+      S.bypassFor=m; blink('yellow',3);
+      S.last='An open sensor needs a bypass.'+(model===1?' The check mark is blinking.':'')+' Press the check mark to continue, or X to cancel.';
+      render(); return;
+    }
+    startExit(m); render();
+  }
+  function openDoor(){
+    if(S.mode!=='away') return;
+    S.mode='entry'; S.total=ENTRY_S*1000; S.deadline=Date.now()+S.total; S.lastSec=-1;
+    S.last='Front door opened. The entry delay started.'+(model===1?' The ring is full and empties counterclockwise.':' The light bar counts down.');
+    emit({type:'door'}); render();
+  }
+  function triggerEmergency(kind){
+    S.buf='';
+    if(kind==='medical'){
+      S.last='Medical alert sent. The siren stays quiet.'; beep.ok(); emit({type:'medical'}); render(); return;
+    }
+    S.mode='alarm'; S.bypassFor=null; S.deadline=0; startSiren();
+    S.last=(kind==='police'?'Police':'Fire')+' alarm triggered. The siren is sounding. Enter your code and press Disarm to silence it.';
+    emit({type:'alarm',panic:true}); render();
+  }
+  function triggerPanic(){
+    S.mode='alarm'; S.buf=''; S.bypassFor=null; S.deadline=0; startSiren();
+    S.last='Panic alarm: X and the check mark were held for 3 seconds. Enter your code and press Disarm to silence it.';
+    emit({type:'alarm',panic:true}); render();
+  }
+
+  /* ---------- timers ---------- */
+  setInterval(function(){
+    if(S.mode!=='exit' && S.mode!=='entry') return;
+    var rem=S.deadline-Date.now();
+    if(rem<=0){
+      if(S.mode==='exit'){
+        S.mode=S.target; S.deadline=0;
+        S.last='Armed in '+(S.mode==='away'?'Away':'Home')+' mode.'+(model===1?' The ring is solid red.':'');
+        beep.ok(); emit({type:'armed',mode:S.mode});
+      } else {
+        S.mode='alarm'; S.deadline=0; startSiren();
+        S.last='The entry delay ran out and the alarm is sounding. Enter your code and press Disarm.';
+        emit({type:'alarm'});
+      }
+    } else {
+      var sec=Math.ceil(rem/1000);
+      if(sec!==S.lastSec){ S.lastSec=sec; beep.tick(); }
+    }
+    render();
+  },100);
+
+  /* ---------- render ---------- */
+  function render(){
+    var rem=Math.max(0,S.deadline-Date.now()), on=0, color='blue';
+    if(S.mode==='disarmed'){on=12;color='blue';}
+    else if(S.mode==='exit'){on=Math.min(12,Math.ceil(12*(1-rem/S.total)));color='red';}
+    else if(S.mode==='away'||S.mode==='home'||S.mode==='alarm'){on=12;color='red';}
+    else if(S.mode==='entry'){on=Math.min(12,Math.ceil(12*rem/S.total));color='red';}
+    segs.forEach(function(s,i){ s.setAttribute('class','seg'+(i<on?' on-'+color:'')); });
+    ringEl.setAttribute('class','ring'+(S.mode==='alarm'?' flash':''));
+    var frac=(S.mode==='exit'||S.mode==='entry')?Math.max(0,rem/S.total):0;
+    $('#lbarFill').style.width=(frac*100)+'%';
+
+    var secs=Math.ceil(rem/1000), text='Disarmed', tn='blue';
+    if(S.bypassFor){text='Waiting for bypass';tn='amber';}
+    else if(S.mode==='exit'){text='Exit delay, '+(S.target==='away'?'Away':'Home')+', '+secs+'s';tn='red';}
+    else if(S.mode==='away'){text='Armed, Away';tn='red';}
+    else if(S.mode==='home'){text='Armed, Home';tn='red';}
+    else if(S.mode==='entry'){text='Entry delay, '+secs+'s left';tn='red';}
+    else if(S.mode==='alarm'){text='Alarm sounding';tn='red';}
+    $('#pillText').textContent=text; $('#pill').dataset.tone=tn;
+    $('#last').textContent=S.last;
+    $('#voice').hidden=!(S.bypassFor && model===1);
+    var d=''; for(var i=0;i<4;i++){ d+=(i<S.buf.length?'●':'○'); }
+    $('#dots').textContent=d;
+    $('#entryRow').hidden=!dotsOn;
+
+    $$('[data-t="ok"]').forEach(function(el){el.classList.toggle('blinking',!!S.bypassFor);});
+    $('#doorBtn').disabled=(S.mode!=='away');
+    var free=(SC[cur].id==='free');
+    $('#winBtn').disabled=!free;
+    $('#winBtn').textContent='Window: '+(S.window?'open':'closed');
+    $('#winBtn').setAttribute('aria-pressed',S.window?'true':'false');
+
+    var h=null;
+    if(hintsOn){
+      var def=SC[cur];
+      if(def.steps && !sc.done && def.steps[sc.i] && def.steps[sc.i].hint) h=def.steps[sc.i].hint();
+    }
+    $$('[data-t]').forEach(function(el){ el.classList.toggle('hint',el.dataset.t===h); });
+  }
+
+  function renderScenarios(){
+    var el=$('#scn'); el.innerHTML='';
+    SC.forEach(function(s,i){
+      var b=document.createElement('button'); b.type='button';
+      b.innerHTML='<b></b><span></span>';
+      b.firstChild.textContent=s.title; b.lastChild.textContent=s.blurb;
+      if(i===cur) b.setAttribute('aria-current','true');
+      b.addEventListener('click',function(){selectScenario(i);});
+      el.appendChild(b);
+    });
+  }
+  function renderCoach(){
+    var def=SC[cur], el=$('#coach'), html='';
+    html+='<h3></h3><p class="blurb"></p>';
+    el.innerHTML=html;
+    el.querySelector('h3').textContent=def.title;
+    el.querySelector('.blurb').textContent=def.blurb;
+    if(def.steps){
+      var ol=document.createElement('ol'); ol.className='steps';
+      def.steps.forEach(function(s,k){
+        var li=document.createElement('li');
+        li.className=sc.done||k<sc.i?'done':(k===sc.i?'current':'');
+        if(k===sc.i && !sc.done) li.setAttribute('aria-current','step');
+        var sp=document.createElement('span'); sp.textContent=(typeof s.t==='function'?s.t():s.t); li.appendChild(sp);
+        ol.appendChild(li);
+      });
+      el.appendChild(ol);
+      if(sc.note && !sc.done){ var n=document.createElement('p'); n.className='note'; n.textContent=sc.note; el.appendChild(n); }
+      if(sc.done){
+        var fin=document.createElement('div'); fin.className='finish';
+        var p=document.createElement('p'); p.textContent=def.done; fin.appendChild(p);
+        var row=document.createElement('div'); row.className='row';
+        var again=document.createElement('button'); again.type='button'; again.className='btn'; again.textContent='Run again';
+        again.addEventListener('click',function(){selectScenario(cur);});
+        row.appendChild(again);
+        if(cur<SC.length-1){
+          var nx=document.createElement('button'); nx.type='button'; nx.className='btn primary'; nx.textContent='Next: '+SC[cur+1].title;
+          nx.addEventListener('click',function(){selectScenario(cur+1);});
+          row.appendChild(nx);
+        }
+        fin.appendChild(row); el.appendChild(fin);
+      } else {
+        var rs=document.createElement('div'); rs.className='row'; rs.style.marginTop='12px';
+        var rb=document.createElement('button'); rb.type='button'; rb.className='btn'; rb.textContent='Start over';
+        rb.addEventListener('click',function(){selectScenario(cur);});
+        rs.appendChild(rb); el.appendChild(rs);
+      }
+    } else {
+      var fr=document.createElement('div'); fr.className='free';
+      fr.innerHTML='<p>Use the keypad exactly as you would at home. Open the front door while armed in Away to test the entry delay, or open the window before arming to see the bypass prompt.</p>';
+      el.appendChild(fr);
+      var rb2=document.createElement('button'); rb2.type='button'; rb2.className='btn'; rb2.textContent='Reset keypad';
+      rb2.addEventListener('click',function(){selectScenario(cur);});
+      el.appendChild(rb2);
+    }
+    var cl=document.createElement('p'); cl.className='codeline';
+    cl.innerHTML='Practice code <span class="mono"></span>';
+    cl.querySelector('.mono').textContent=code;
+    el.appendChild(cl);
+    render();
+  }
+
+  /* ---------- input wiring ---------- */
+  var down={}, panicTimer=null, panicFired=false;
+  function downCount(){ return Object.keys(down).length; }
+  function setDown(k,v){
+    if(v) down[k]=true; else delete down[k];
+    if(model===1 && down.x && down.ok){
+      if(!panicTimer && !panicFired){ panicTimer=setTimeout(function(){panicTimer=null;panicFired=true;triggerPanic();},3000); }
+    } else if(panicTimer){ clearTimeout(panicTimer); panicTimer=null; }
+    if(downCount()===0){ setTimeout(function(){panicFired=false;},0); }
+  }
+  $$('.key,.kk').forEach(function(b){
+    var t=b.dataset.t;
+    b.addEventListener('click',function(){
+      if(panicFired) return;
+      if(t==='x') pressX(); else if(t==='ok') pressOk(); else pressDigit(t.slice(1));
+    });
+    if(t==='x'||t==='ok'){
+      b.addEventListener('pointerdown',function(){setDown(t,true);});
+      ['pointerup','pointercancel','pointerleave'].forEach(function(n){ b.addEventListener(n,function(){setDown(t,false);}); });
+    }
+  });
+  $$('.pad,.mbtn').forEach(function(p){
+    var t=p.dataset.t;
+    p.addEventListener('click',function(){pressMode(t);});
+    p.addEventListener('keydown',function(e){
+      if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); if(!e.repeat) pressMode(t); }
+    });
+  });
+  $$('.emg').forEach(function(b){
+    var kind=b.dataset.e, timer=null;
+    function start(){ if(timer) return; b.classList.add('holding'); timer=setTimeout(function(){timer=null;b.classList.remove('holding');triggerEmergency(kind);},3000); }
+    function stop(){ if(timer){clearTimeout(timer);timer=null;} b.classList.remove('holding'); }
+    b.addEventListener('pointerdown',start);
+    ['pointerup','pointercancel','pointerleave'].forEach(function(n){ b.addEventListener(n,stop); });
+    b.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); if(!e.repeat) start(); } });
+    b.addEventListener('keyup',function(e){ if(e.key==='Enter'||e.key===' ') stop(); });
+    b.addEventListener('contextmenu',function(e){ e.preventDefault(); });
+  });
+  $('#doorBtn').addEventListener('click',openDoor);
+  $('#winBtn').addEventListener('click',function(){ if(SC[cur].id==='free'){ S.window=!S.window; render(); } });
+
+  var IGNORE='input,select,textarea,summary,.side,.sim,.models,.settings,a';
+  document.addEventListener('keydown',function(e){
+    if(e.ctrlKey||e.metaKey||e.altKey) return;
+    if(e.target && e.target.closest && e.target.closest(IGNORE)) return;
+    var k=e.key, handled=true;
+    if(/^[0-9]$/.test(k)){ if(!e.repeat) pressDigit(k); }
+    else if(k==='Escape'){ if(!e.repeat){ setDown('x',true); pressX(); } }
+    else if(k==='Backspace'){ if(!e.repeat) pressX(); }
+    else if(k==='Enter'){ if(!e.repeat){ setDown('ok',true); pressOk(); } }
+    else if(k==='a'||k==='A'){ if(!e.repeat) pressMode('away'); }
+    else if(k==='h'||k==='H'){ if(!e.repeat) pressMode('home'); }
+    else if(k==='d'||k==='D'){ if(!e.repeat) pressMode('disarm'); }
+    else handled=false;
+    if(handled) e.preventDefault();
+  });
+  document.addEventListener('keyup',function(e){
+    if(e.key==='Escape') setDown('x',false);
+    if(e.key==='Enter') setDown('ok',false);
+  });
+  window.addEventListener('blur',function(){ down={}; if(panicTimer){clearTimeout(panicTimer);panicTimer=null;} });
+
+  /* settings */
+  $('#codeInput').addEventListener('input',function(e){
+    var v=e.target.value.replace(/\D/g,'').slice(0,4); e.target.value=v;
+    var help=$('#codeHelp');
+    if(v.length===4){ code=v; S.buf=''; help.textContent='Practice code set to '+v+'.'; renderCoach(); }
+    else { help.textContent='Enter exactly 4 digits to change the practice code.'; }
+  });
+  $('#hintsOn').addEventListener('change',function(e){hintsOn=e.target.checked;render();});
+  $('#dotsOn').addEventListener('change',function(e){dotsOn=e.target.checked;render();});
+  $('#soundOn').addEventListener('change',function(e){soundOn=e.target.checked; if(!soundOn) stopSiren();});
+
+  function setModel(n){
+    model=n;
+    $('#wrap1').hidden=(n!==1); $('#wrap2').hidden=(n!==2);
+    $('#m1').setAttribute('aria-pressed',n===1?'true':'false');
+    $('#m2').setAttribute('aria-pressed',n===2?'true':'false');
+    $$('[data-m]').forEach(function(el){ el.hidden=(el.dataset.m!==String(n)); });
+    selectScenario(cur);
+  }
+  $('#m1').addEventListener('click',function(){setModel(1);});
+  $('#m2').addEventListener('click',function(){setModel(2);});
+  setModel(1);
+})();
+</script>
+
+</body>
+</html>
